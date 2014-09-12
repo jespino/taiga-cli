@@ -1,32 +1,33 @@
 (ns taiga-cli.core
   (:require
+    [taiga-cli.client :as client]
     [clojure.string :as string]
-    [clj-http.client :as client]
-    [clojure.data.json :as json])
+    [clojure.set :as clj-set])
   (:gen-class))
 
-(defn login [username password]
-  (get (:body (client/post
-    "http://localhost:8000/api/v1/auth"
-    {
-      :body (json/write-str {
-         :username username
-         :password password
-         :type "normal"
-      })
-      :accept :json
-      :content-type :json
-      :throw-exceptions false
-    })) "auth_token"))
+(defn quit []
+  (println "bye")
+  :quit)
+
+(defn cli-loop [line]
+  (if line
+    (let [arguments (string/split line #"\s")]
+      (case (first arguments)
+        "login" (if (= (count arguments) 3)
+                  (println (client/login (nth arguments 1) (nth arguments 2)))
+                  (println "Usage: login <username> <password>"))
+        "projects" (if (= (count arguments) 1)
+                  (println (string/join "\n" (client/projects)))
+                  (println "Usage: projects"))
+        "backlog" (if (= (count arguments) 2)
+                  (println (string/join "\n" (client/backlog (nth arguments 1))))
+                  (println "Usage: backlog <project-slug>"))
+        "quit" (quit)
+        (println "error")))
+    (quit)))
 
 (defn -main [& args]
   (loop []
     (print "> ")
     (flush)
-    (let [arguments (string/split (read-line) #"\s")]
-      (case (first arguments)
-        "login" (do (println (login "admin" "123123")) (recur))
-        "stop" (do (println "stop") (recur))
-        "status" (do (println "status") (recur))
-        "quit" (println "bye")
-        (do (println "error") (recur))))))
+    (if (not= :quit (cli-loop (read-line))) (recur))))
